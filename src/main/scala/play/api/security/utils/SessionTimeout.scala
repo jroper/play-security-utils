@@ -6,6 +6,7 @@ import util.control.Exception._
 import util.Random
 import play.api.mvc._
 import play.api.http.HeaderNames
+import play.api.http.HeaderNames._
 
 /**
  * Provides a session timeout.
@@ -26,7 +27,7 @@ case class SessionTimeout[A](mode: SessionTimeoutMode = sessionTimeoutMode,
       (System.currentTimeMillis() - timeoutSecs * 1000) > value
     } getOrElse false
     // We should block the incoming session if it is expired, or if there is a session but no timestamp is defined
-    val blockSession = expired || (!request.session.isEmpty && !timestamp.isDefined && !workAroundCookieEncoderBug)
+    val blockSession = expired || (!request.session.isEmpty && !timestamp.isDefined)
 
     // Block the session if necessary
     var wrappedRequest = request
@@ -68,32 +69,53 @@ case class SessionTimeout[A](mode: SessionTimeoutMode = sessionTimeoutMode,
 
     // If we need to block the session, and there's no new session, then we need discard the session cookie
     if (blockSession && session.isEmpty) {
-      return result.discardingCookies(Session.COOKIE_NAME)
+      return discardingCookies(result, Session.COOKIE_NAME)
     }
 
     // If there's a new session (ie, no timestamp set in it) we need to add it.
     if (!session.isEmpty && session.get(sessionTimestampKey).isEmpty) {
-      return result.withSession(session + (sessionTimestampKey -> System.currentTimeMillis().toString))
-    }
-
-    // Work around for bug #511
-    if (workAroundCookieEncoderBug && !incomingSession.isEmpty && session.isEmpty && timestamp.isEmpty) {
-      return (result.withSession(incomingSession + (sessionTimestampKey -> System.currentTimeMillis().toString)))
+      return withSession(result, session + (sessionTimestampKey -> System.currentTimeMillis().toString))
     }
 
     // Only need to do something now if in last accessed mode, and it's time to update the timestamp
     if (mode == LastAccessed && shouldUpdate(timestamp)) {
       // If there's a session set in the result, update the timestamp in that
       if (!session.isEmpty) {
-        return result.withSession(session + (sessionTimestampKey -> System.currentTimeMillis().toString))
+        return withSession(result, session + (sessionTimestampKey -> System.currentTimeMillis().toString))
       }
       // Otherwise, set the timestamp from the incoming session
-      return (result.withSession(incomingSession + (sessionTimestampKey -> System.currentTimeMillis().toString)))
+      return withSession(result, incomingSession + (sessionTimestampKey -> System.currentTimeMillis().toString))
     }
 
     // Nothing to do
     result
   }
+
+  /*
+   * The methods below all serve to work around bug #511. They are copies of the corresponding methods on Result
+   * and Cookies, and ensure that the result ends up with unique cookie values.
+   */
+  private def withSession(result: PlainResult, session: Session): PlainResult = {
+    if (session.isEmpty) discardingCookies(result, Session.COOKIE_NAME) else withCookies(result, Session.encodeAsCookie(session))
+  }
+
+  private def withCookies(result: PlainResult, cookies: Cookie*): PlainResult = {
+    result.withHeaders(SET_COOKIE -> mergeCookies(result.header.headers.get(SET_COOKIE).getOrElse(""), cookies))
+  }
+
+  private def discardingCookies(result: PlainResult, names: String*): PlainResult = {
+    result.withHeaders(SET_COOKIE -> mergeCookies(result.header.headers.get(SET_COOKIE).getOrElse(""), Nil, discard = names))
+  }
+
+  private def mergeCookies(cookieHeader: String, cookies: Seq[Cookie], discard: Seq[String] = Nil): String = {
+    val existing = Cookies.decode(cookieHeader) filterNot { cookie =>
+      cookies.exists(_.name == cookie.name) || discard.contains(cookie.name)
+    }
+    Cookies.encode(existing ++ cookies, discard)
+  }
+  /*
+   * End work around methods
+   */
 
   private def shouldUpdate(timestamp: Option[Long]): Boolean = {
     timestamp map { value =>

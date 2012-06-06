@@ -10,7 +10,7 @@ import play.api.http.HeaderNames
 import SessionTimeoutConfig._
 import play.api.libs.concurrent.Promise
 
-class SessionTimeoutActionSpec extends Specification with Results {
+class SessionTimeoutSpec extends Specification with Results {
   sequential
   "Session timeout action" should {
     "do nothing with the session when no session exists and no session is created" in new Setup {
@@ -30,8 +30,7 @@ class SessionTimeoutActionSpec extends Specification with Results {
         session.get("a") must_== Some("b")
         session.get(sessionTimestampKey).isDefined must_== true
       }
-      failure("This test randomly passes")
-    }.pendingUntilFixed("Play 2 ticket #511")
+    }
     "allow a session if not expired" in new Setup {
       running(fakeApp) {
         val result = test(new FakeRequest(
@@ -70,7 +69,7 @@ class SessionTimeoutActionSpec extends Specification with Results {
         cookie.isDefined must_== true
         cookie.get.value must_== ""
       }
-    }.pendingUntilFixed("Play 2 ticket #511")
+    }
     "allow a new session to be created when the old session is expired" in new Setup {
       running(fakeApp) {
         val result = test(new FakeRequest(
@@ -92,8 +91,7 @@ class SessionTimeoutActionSpec extends Specification with Results {
         }
         decodeSession(result).get(sessionTimestampKey).isDefined must_== true
       }
-      failure("This test randomly passes")
-    }.pendingUntilFixed("Play 2 ticket #511")
+    }
     "update the timestamp in last accessed mode, preserving existing session" in new Setup {
       running(fakeApp) {
         val t = System.currentTimeMillis() - 400000
@@ -123,8 +121,7 @@ class SessionTimeoutActionSpec extends Specification with Results {
         session.get(sessionTimestampKey).isDefined must_== true
         session.get(sessionTimestampKey) must_!= Some(t.toString)
       }
-      failure("This test randomly passes")
-    }.pendingUntilFixed("Play 2 ticket #511")
+    }
     "only after a delay update the timestamp in last accessed mode" in new Setup {
       running(fakeApp) {
         val t = System.currentTimeMillis() - 200000
@@ -158,18 +155,6 @@ class SessionTimeoutActionSpec extends Specification with Results {
         .flatMap(value => Cookies.decode(value).find(_.name == Session.COOKIE_NAME))
       cookie.isDefined must_== true
       cookie.get.value must_== ""
-    }
-    "work around bug #511" in new Setup {
-      running(fakeApp) {
-        val result = test(new FakeRequest(
-          new Session(Map("a" -> "b"))
-        )) { request =>
-          NoContent
-        }
-        val session = decodeSession(result)
-        session.get("a") must_== Some("b")
-        session.get(sessionTimestampKey).isDefined must_== true
-      }
     }
   }
 

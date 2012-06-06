@@ -33,19 +33,6 @@ object SessionTimeoutConfig {
     _.configuration.getInt("session.timeout.lastAccessedUpdateIntervalSeconds")
   } getOrElse 300
 
-  /**
-   * Whether Play Framework bug 511 should be worked around
-   */
-  lazy val workAroundCookieEncoderBug: Boolean = {
-    // Detect whether the bug is present
-    if (new DefaultCookie("n", "v").equals(new DefaultCookie("n", "v"))) {
-      false
-    } else {
-      Logger.warn("Working around Play bug #511. This makes the session timeout not 100% guaranteable.")
-      true
-    }
-  }
-
   val sessionTimestampKey = "_playSessionTimestamp"
 }
 

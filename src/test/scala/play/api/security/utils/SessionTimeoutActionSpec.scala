@@ -179,7 +179,7 @@ class SessionTimeoutActionSpec extends Specification with Results {
       "application.secret" -> "secret"))
 
     def test(request: Request[AnyContent], mode: SessionTimeoutMode = MaxLength)(action: Request[AnyContent] => Result): PlainResult = {
-      SessionTimeoutAction(mode = mode) {
+      SessionTimeout(mode = mode) {
         Action { request =>
           action(request)
         }

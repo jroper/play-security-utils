@@ -10,7 +10,7 @@ import play.api.http.HeaderNames
 /**
  * Provides a session timeout.
  */
-case class SessionTimeoutAction[A](mode: SessionTimeoutMode = sessionTimeoutMode,
+case class SessionTimeout[A](mode: SessionTimeoutMode = sessionTimeoutMode,
                                    timeoutSecs: Int = sessionTimeoutSecs,
                                    updateIntervalSecs: Int = lastAccessedUpdateIntervalSecs)
                                   (val action: Action[A]) extends Action[A] {
@@ -103,4 +103,16 @@ case class SessionTimeoutAction[A](mode: SessionTimeoutMode = sessionTimeoutMode
   }
 
   lazy val parser = action.parser
+}
+
+object SessionTimeoutHandler {
+  def apply(mode: SessionTimeoutMode = sessionTimeoutMode,
+            timeoutSecs: Int = sessionTimeoutSecs,
+            updateIntervalSecs: Int = lastAccessedUpdateIntervalSecs)
+           (handler: Option[Handler]): Option[Handler] = {
+    handler.map { _ match {
+      case action: Action[_] => SessionTimeout(mode, timeoutSecs, updateIntervalSecs)(action)
+      case other: Handler => other
+    }}
+  }
 }
